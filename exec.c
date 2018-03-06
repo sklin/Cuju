@@ -3832,11 +3832,10 @@ static void __assert_gfn_in_dlist(unsigned int gfn, unsigned int *gfns, int size
     for (i = 0; i < size; i++)
         if (gfn == gfns[i])
             return;
-#ifdef ft_debug_mode_enable
-    printf("%s can't find %u in dlist\n", __func__, gfn);
-    printf("%s due to a bug, dirty pages are out of control, FT will fail, abort..\n", __func__);
-    printf("%s please notify me\n", __func__);
-#endif
+  void *hva = gfn_to_hva(gfn);
+  printf("%s can't find %u(%p) in dlist\n", __func__, gfn, hva);
+  printf("%s due to a bug, dirty pages are out of control, FT will fail, abort..\n", __func__);
+  printf("%s please notify me\n", __func__);
     //abort();
 }
 

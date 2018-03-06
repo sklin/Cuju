@@ -183,6 +183,7 @@ void virtqueue_get_avail_bytes(VirtQueue *vq, unsigned int *in_bytes,
                                unsigned max_in_bytes, unsigned max_out_bytes);
 
 //For CUJU-FT
+void *desc_get_req(VirtQueue *vq, size_t sz, unsigned int head);
 void *virtqueue_get(VirtQueue *vq, size_t sz, unsigned int head);
 void *virtio_blk_get_temp_list(void);
 void virtio_blk_commit_temp_list(void* opaque);
