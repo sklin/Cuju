@@ -705,16 +705,16 @@ void *virtqueue_pop(VirtQueue *vq, size_t sz, unsigned int *head_out, bool defer
     VRingDesc desc;
     int rc;
 
-    bool is_virtio_blk = strcmp("virtio-blk", vq->vdev->name)==0;
-    if(migrate_cuju_enabled() && is_virtio_blk) {
-        printf("[%s] Vring num: %u, num_default: %u\n", __func__, vq->vring.num, vq->vring.num_default);
-        printf("    Device<%s> VirtQueue last_avail_idx: %hd, shadow_avail_idx: %hd, used_idx: %hd, signalled_used: %hd, signalled_used_valid: %d,"
-               "notification: %d, queue_index: %hd, inuse: %d\n",
-                vq->vdev->name,
-                vq->last_avail_idx, vq->shadow_avail_idx, vq->used_idx, vq->signalled_used, vq->signalled_used_valid,
-                vq->notification, vq->queue_index, vq->inuse
-            );
-    }
+    //bool is_virtio_blk = strcmp("virtio-blk", vq->vdev->name)==0;
+    //if(migrate_cuju_enabled() && is_virtio_blk) {
+    //    printf("[%s] Vring num: %u, num_default: %u\n", __func__, vq->vring.num, vq->vring.num_default);
+    //    printf("    Device<%s> VirtQueue last_avail_idx: %hd, shadow_avail_idx: %hd, used_idx: %hd, signalled_used: %hd, signalled_used_valid: %d,"
+    //           "notification: %d, queue_index: %hd, inuse: %d\n",
+    //            vq->vdev->name,
+    //            vq->last_avail_idx, vq->shadow_avail_idx, vq->used_idx, vq->signalled_used, vq->signalled_used_valid,
+    //            vq->notification, vq->queue_index, vq->inuse
+    //        );
+    //}
 
     if (unlikely(vdev->broken)) {
         return NULL;
@@ -732,7 +732,7 @@ void *virtqueue_pop(VirtQueue *vq, size_t sz, unsigned int *head_out, bool defer
     max = vq->vring.num;
 
     if (vq->inuse >= vq->vring.num) {
-        printf("error: inuse: %d, vring.num: %d\n", vq->inuse, vq->vring.num);
+        //printf("error: inuse: %d, vring.num: %d\n", vq->inuse, vq->vring.num);
         virtio_error(vdev, "Virtqueue size exceeded");
         return NULL;
     }
@@ -744,9 +744,9 @@ void *virtqueue_pop(VirtQueue *vq, size_t sz, unsigned int *head_out, bool defer
         return NULL;
     }
 
-    if(migrate_cuju_enabled() && is_virtio_blk) {
-        printf("    head: %3u\n", head);
-    }
+    //if(migrate_cuju_enabled() && is_virtio_blk) {
+    //    printf("    head: %3u\n", head);
+    //}
 
     if (virtio_vdev_has_feature(vdev, VIRTIO_RING_F_EVENT_IDX)) {
         //if(migrate_cuju_enabled() && is_virtio_blk) {
@@ -918,102 +918,6 @@ void qemu_put_virtqueue_element(QEMUFile *f, VirtQueueElement *elem)
     qemu_put_buffer(f, (uint8_t *)&data, sizeof(VirtQueueElementOld));
 }
 
-/* sklin */
-void *desc_get_req(VirtQueue *vq, size_t sz, unsigned int head)
-{
-    unsigned int i, max;
-    hwaddr desc_pa = vq->vring.desc;
-    VirtIODevice *vdev = vq->vdev;
-    VirtQueueElement *elem;
-    unsigned out_num, in_num;
-    hwaddr addr[VIRTQUEUE_MAX_SIZE];
-    struct iovec iov[VIRTQUEUE_MAX_SIZE];
-    VRingDesc desc;
-    int rc;
-
-    if (unlikely(vdev->broken)) {
-        return NULL;
-    }
-
-    smp_rmb();
-
-    /* When we start there are none of either input nor output. */
-    out_num = in_num = 0; // ?
-
-    max = vq->vring.num;
-
-    i = head;
-    vring_desc_read(vdev, &desc, desc_pa, i, __func__);
-    if (desc.flags & VRING_DESC_F_INDIRECT) {
-        if (desc.len % sizeof(VRingDesc)) {
-            virtio_error(vdev, "Invalid size for indirect buffer table");
-            return NULL;
-        }
-
-        /* loop over the indirect descriptor table */
-        max = desc.len / sizeof(VRingDesc);
-        desc_pa = desc.addr;
-        i = 0;
-        vring_desc_read(vdev, &desc, desc_pa, i, __func__);
-    }
-
-    /* Collect all the descriptors */
-    do {
-        bool map_ok;
-
-        if (desc.flags & VRING_DESC_F_WRITE) {
-            map_ok = virtqueue_map_desc(vdev, &in_num, addr + out_num,
-                                        iov + out_num,
-                                        VIRTQUEUE_MAX_SIZE - out_num, true,
-                                        desc.addr, desc.len, 0);
-        } else {
-            if (in_num) {
-                virtio_error(vdev, "Incorrect order for descriptors");
-                goto err_undo_map;
-            }
-            map_ok = virtqueue_map_desc(vdev, &out_num, addr, iov,
-                                        VIRTQUEUE_MAX_SIZE, false,
-                                        desc.addr, desc.len, 0);
-        }
-        if (!map_ok) {
-            goto err_undo_map;
-        }
-
-        /* If we've got too many, that implies a descriptor loop. */
-        if ((in_num + out_num) > max) {
-            virtio_error(vdev, "Looped descriptor");
-            goto err_undo_map;
-        }
-
-        rc = virtqueue_read_next_desc(vdev, &desc, desc_pa, max, &i);
-    } while (rc == VIRTQUEUE_READ_DESC_MORE);
-
-    if (rc == VIRTQUEUE_READ_DESC_ERROR) {
-        goto err_undo_map;
-    }
-
-    /* Now copy what we have collected and mapped */
-    elem = virtqueue_alloc_element(sz, out_num, in_num);
-    elem->index = head;
-    for (i = 0; i < out_num; i++) {
-        elem->out_addr[i] = addr[i];
-        elem->out_sg[i] = iov[i];
-    }
-    for (i = 0; i < in_num; i++) {
-        elem->in_addr[i] = addr[out_num + i];
-        elem->in_sg[i] = iov[out_num + i];
-    }
-
-    vq->inuse++; // TODO: sklin: ?
-
-    return elem;
-
-err_undo_map:
-    virtio_error(vdev, "err_undo_map");
-    virtqueue_undo_map_desc(out_num, in_num, iov);
-    return NULL;
-}
-
 void *virtqueue_get(VirtQueue *vq, size_t sz, unsigned int head)
 {
     unsigned int i, max;
@@ -1112,7 +1016,7 @@ void *virtqueue_get(VirtQueue *vq, size_t sz, unsigned int head)
         elem->in_sg[i] = iov[out_num + i];
     }
 
-    //vq->inuse++; // TODO: sklin: ?
+    vq->inuse++; // ?
 
     trace_virtqueue_pop(vq, elem, elem->in_num, elem->out_num);
     return elem;

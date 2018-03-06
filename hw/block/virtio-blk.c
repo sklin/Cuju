@@ -147,24 +147,10 @@ static void virtio_blk_init_request(VirtIOBlock *s, VirtQueue *vq,
 static void virtio_blk_free_request(VirtIOBlockReq *req)
 {
     if (req) {
-        g_free(req);
-    }
-}
-
-static void virtio_blk_free_request_wrapper(VirtIOBlockReq *req, const char *funcName)
-{
-    time_t t;
-    time(&t);
-    //printf("[virtio_blk_free_request_wrapper] <%s>:", funcName);
-    if(req) {
         //printf("    req: sector_num: %ld,\tsector: %ld,\ttype: %d,\tiopriority: %d,\taddr:%p\n",
         //    req->sector_num, req->out.sector, req->out.type, req->out.ioprio, req);
+        g_free(req);
     }
-    else {
-        /* TODO: why req might be NULL */
-        //printf("    req is empty\n");
-    }
-    virtio_blk_free_request(req);
 }
 
 static void virtio_blk_complete_head(VirtIOBlockReq *req)
@@ -284,7 +270,7 @@ static int virtio_blk_handle_rw_error(VirtIOBlockReq *req, int error,
     } else if (action == BLOCK_ERROR_ACTION_REPORT) {
         virtio_blk_req_complete(req, VIRTIO_BLK_S_IOERR);
         block_acct_failed(blk_get_stats(s->blk), &req->acct);
-        virtio_blk_free_request_wrapper(req, __func__);
+        virtio_blk_free_request(req);
     }
 
     blk_error_action(s->blk, action, is_read, error);
@@ -325,7 +311,7 @@ static void virtio_blk_rw_complete(void *opaque, int ret)
 
         virtio_blk_req_complete(req, VIRTIO_BLK_S_OK);
         block_acct_done(blk_get_stats(req->dev->blk), &req->acct);
-        virtio_blk_free_request_wrapper(req, __func__); // TODO: delay free, by sklin
+        virtio_blk_free_request(req); // TODO: delay free, by sklin
     }
 }
 
@@ -341,7 +327,7 @@ static void virtio_blk_flush_complete(void *opaque, int ret)
 
     virtio_blk_req_complete(req, VIRTIO_BLK_S_OK);
     block_acct_done(blk_get_stats(req->dev->blk), &req->acct);
-    virtio_blk_free_request_wrapper(req, __func__);
+    virtio_blk_free_request(req);
 }
 
 #ifdef __linux__
@@ -388,7 +374,7 @@ static void virtio_blk_ioctl_complete(void *opaque, int status)
 
 out:
     virtio_blk_req_complete(req, status);
-    virtio_blk_free_request_wrapper(req, __func__);
+    virtio_blk_free_request(req);
     g_free(ioctl_req);
 }
 
@@ -409,7 +395,7 @@ static VirtIOBlockReq *virtio_blk_alloc_request(VirtIOBlock *s)
 static VirtIOBlockReq *virtio_blk_get_request_from_head(VirtIODevice *vdev, unsigned int head, unsigned int idx)
 {
     VirtIOBlock *s = VIRTIO_BLK(vdev);
-    VirtIOBlockReq *req = desc_get_req(virtio_get_queue(vdev, idx), sizeof(VirtIOBlockReq), head);
+    VirtIOBlockReq *req = virtqueue_get(virtio_get_queue(vdev, idx), sizeof(VirtIOBlockReq), head);
     //uint32_t type;
 
     if (req != NULL) {
@@ -610,7 +596,7 @@ static void virtio_blk_handle_scsi(VirtIOBlockReq *req)
     status = virtio_blk_handle_scsi_req(req);
     if (status != -EINPROGRESS) {
         virtio_blk_req_complete(req, status);
-        virtio_blk_free_request_wrapper(req, __func__);
+        virtio_blk_free_request(req);
     }
 }
 
@@ -769,7 +755,7 @@ static void virtio_blk_handle_write(VirtIOBlockReq *req, MultiReqBuffer *mrb)
                                   req->qiov.size)) {
         virtio_blk_req_complete(req, VIRTIO_BLK_S_IOERR);
         block_acct_invalid(blk_get_stats(req->dev->blk), BLOCK_ACCT_WRITE);
-        virtio_blk_free_request_wrapper(req, __func__);
+        virtio_blk_free_request(req);
         return;
     }
 
@@ -884,7 +870,7 @@ static int virtio_blk_handle_request(VirtIOBlockReq *req, MultiReqBuffer *mrb, u
             virtio_blk_req_complete(req, VIRTIO_BLK_S_IOERR);
             block_acct_invalid(blk_get_stats(req->dev->blk),
                                is_write ? BLOCK_ACCT_WRITE : BLOCK_ACCT_READ);
-            virtio_blk_free_request_wrapper(req, __func__);
+            virtio_blk_free_request(req);
             return 0;
         }
 
@@ -925,12 +911,12 @@ static int virtio_blk_handle_request(VirtIOBlockReq *req, MultiReqBuffer *mrb, u
                               VIRTIO_BLK_ID_BYTES));
         iov_from_buf(in_iov, in_num, 0, serial, size);
         virtio_blk_req_complete(req, VIRTIO_BLK_S_OK);
-        virtio_blk_free_request_wrapper(req, __func__);
+        virtio_blk_free_request(req);
         break;
     }
     default:
         virtio_blk_req_complete(req, VIRTIO_BLK_S_UNSUPP);
-        virtio_blk_free_request_wrapper(req, __func__);
+        virtio_blk_free_request(req);
     }
     return 0;
 }
@@ -946,7 +932,7 @@ void virtio_blk_handle_vq(VirtIOBlock *s, VirtQueue *vq)
     while ((req = virtio_blk_get_request(s, vq, &head))) {
         if (virtio_blk_handle_request(req, &mrb, head)) {
             virtqueue_detach_element(req->vq, &req->elem, 0);
-            virtio_blk_free_request_wrapper(req, __func__);
+            virtio_blk_free_request(req);
             break;
         }
     }
@@ -994,7 +980,7 @@ static void virtio_blk_dma_restart_bh(void *opaque)
             while (req) {
                 next = req->next;
                 virtqueue_detach_element(req->vq, &req->elem, 0);
-                virtio_blk_free_request_wrapper(req, __func__);
+                virtio_blk_free_request(req);
                 req = next;
             }
             break;
@@ -1039,7 +1025,7 @@ static void virtio_blk_reset(VirtIODevice *vdev)
         req = s->rq;
         s->rq = req->next;
         virtqueue_detach_element(req->vq, &req->elem, 0);
-        virtio_blk_free_request_wrapper(req, __func__);
+        virtio_blk_free_request(req);
     }
 
     aio_context_release(ctx);
