@@ -170,10 +170,10 @@ static void virtio_blk_complete_head(VirtIOBlockReq *req)
         assert(idx<rec->len);
 
         /* TODO: why rec might be NULL */
-        printf("[%s] left: %d -> %d,\t Remove request:"
-               " sector_num: %ld,\tsector: %ld,\ttype: %d,\tiopriority: %d\n",
-            __func__, rec->left, rec->left-1,
-            req->sector_num, req->out.sector, req->out.type, req->out.ioprio);
+        //printf("[%s] left: %d -> %d,\t Remove request:"
+        //       " sector_num: %ld,\tsector: %ld,\ttype: %d,\tiopriority: %d\n",
+        //    __func__, rec->left, rec->left-1,
+        //    req->sector_num, req->out.sector, req->out.type, req->out.ioprio);
 
         if (--rec->left == 0) {
             // TODO: delay free, by sklin
@@ -833,14 +833,14 @@ static int virtio_blk_handle_request(VirtIOBlockReq *req, MultiReqBuffer *mrb, u
             trace_virtio_blk_handle_write(req, req->sector_num,
                                           req->qiov.size / BDRV_SECTOR_SIZE);
 			if (kvmft_started()) {
-                printf("[%s] sector_num: %ld,\tsector: %ld, type: %d, iopriority: %d, address: %p\n",
-                        __func__,
-                        /* TODO: type conversion ?*/
-                        req->sector_num,
-                        req->out.sector,
-                        req->out.type,
-                        req->out.ioprio,
-                        req);
+                //printf("[%s] sector_num: %ld,\tsector: %ld, type: %d, iopriority: %d, address: %p\n",
+                //        __func__,
+                //        /* TODO: type conversion ?*/
+                //        req->sector_num,
+                //        req->out.sector,
+                //        req->out.type,
+                //        req->out.ioprio,
+                //        req);
 
 				virtio_blk_save_write_head(s, req, head);
 #ifdef CONFIG_EPOCH_OUTPUT_TRIGGER
@@ -1162,9 +1162,8 @@ static void virtio_blk_set_status(VirtIODevice *vdev, uint8_t status)
 
 static void virtio_blk_save_device(VirtIODevice *vdev, QEMUFile *f)
 {
-    printf("[%s]\n", __func__);
+    //printf("[%s]\n", __func__);
     VirtIOBlock *s = VIRTIO_BLK(vdev);
-
     VirtIOBlockReq *req = s->rq;
     ReqRecord *rec;
     int i;
@@ -1172,24 +1171,24 @@ static void virtio_blk_save_device(VirtIODevice *vdev, QEMUFile *f)
     // send temp_list and record_list to slave.
     QTAILQ_FOREACH(rec, &s->record_list, node) {
         int nsend = 0; // debugging
-        printf("Record: len=%d, left=%d\n", rec->len, rec->left);
+        //printf("Record: len=%d, left=%d\n", rec->len, rec->left);
         qemu_put_sbyte(f, 3);
         qemu_put_be32(f, rec->left);
         for (i = 0; i < rec->len; i++) {
             if (rec->completed[i])
                 continue;
-            printf("    <record request>: %d/%d,head: %d,idx: %d, "
-            "sector_num: %ld, sector: %ld, type: %d, iopriority: %d, ",
-                    i, rec->len, rec->list[i], rec->idx[i],
-                    /* TODO: type conversion ?*/
-                    ((VirtIOBlockReq *)rec->reqs[i])->sector_num,
-                    ((VirtIOBlockReq *)rec->reqs[i])->out.sector,
-                    ((VirtIOBlockReq *)rec->reqs[i])->out.type,
-                    ((VirtIOBlockReq *)rec->reqs[i])->out.ioprio);
-            printf("<elem>: index: %u, out_num: %u, in_num, %u\n",
-                    ((VirtIOBlockReq *)rec->reqs[i])->elem.index,
-                    ((VirtIOBlockReq *)rec->reqs[i])->elem.out_num,
-                    ((VirtIOBlockReq *)rec->reqs[i])->elem.in_num);
+            //printf("    <record request>: %d/%d,head: %d,idx: %d, "
+            //"sector_num: %ld, sector: %ld, type: %d, iopriority: %d, ",
+            //        i, rec->len, rec->list[i], rec->idx[i],
+            //        /* TODO: type conversion ?*/
+            //        ((VirtIOBlockReq *)rec->reqs[i])->sector_num,
+            //        ((VirtIOBlockReq *)rec->reqs[i])->out.sector,
+            //        ((VirtIOBlockReq *)rec->reqs[i])->out.type,
+            //        ((VirtIOBlockReq *)rec->reqs[i])->out.ioprio);
+            //printf("<elem>: index: %u, out_num: %u, in_num, %u\n",
+            //        ((VirtIOBlockReq *)rec->reqs[i])->elem.index,
+            //        ((VirtIOBlockReq *)rec->reqs[i])->elem.out_num,
+            //        ((VirtIOBlockReq *)rec->reqs[i])->elem.in_num);
             //{
             //    /* sklin: debug message */
             //    unsigned int j;
@@ -1219,24 +1218,24 @@ static void virtio_blk_save_device(VirtIODevice *vdev, QEMUFile *f)
     }
     if (s->temp_list && s->temp_list->len > 0) {
         int nsend = 0; // debugging
-        printf("Temp List: len=%d, left=%d\n", s->temp_list->len, s->temp_list->left);
+        //printf("Temp List: len=%d, left=%d\n", s->temp_list->len, s->temp_list->left);
         qemu_put_sbyte(f, 3);
         qemu_put_be32(f, s->temp_list->left);
         for (i = 0; i < s->temp_list->len; i++) {
             if (s->temp_list->completed[i])
                 continue;
-            printf("    <temp_list request>:%d/%d, head: %d, idx: %d, "
-            "sector_num: %ld, sector: %ld, type: %d, iopriority: %d, ",
-                    i, s->temp_list->len, s->temp_list->list[i],  s->temp_list->idx[i],
-                    /* TODO: type conversion ?*/
-                    ((VirtIOBlockReq *)s->temp_list->reqs[i])->sector_num,
-                    ((VirtIOBlockReq *)s->temp_list->reqs[i])->out.sector,
-                    ((VirtIOBlockReq *)s->temp_list->reqs[i])->out.type,
-                    ((VirtIOBlockReq *)s->temp_list->reqs[i])->out.ioprio);
-            printf("<elem>: index: %u, out_num: %u, in_num, %u\n",
-                    ((VirtIOBlockReq *)s->temp_list->reqs[i])->elem.index,
-                    ((VirtIOBlockReq *)s->temp_list->reqs[i])->elem.out_num,
-                    ((VirtIOBlockReq *)s->temp_list->reqs[i])->elem.in_num);
+            //printf("    <temp_list request>:%d/%d, head: %d, idx: %d, "
+            //"sector_num: %ld, sector: %ld, type: %d, iopriority: %d, ",
+            //        i, s->temp_list->len, s->temp_list->list[i],  s->temp_list->idx[i],
+            //        /* TODO: type conversion ?*/
+            //        ((VirtIOBlockReq *)s->temp_list->reqs[i])->sector_num,
+            //        ((VirtIOBlockReq *)s->temp_list->reqs[i])->out.sector,
+            //        ((VirtIOBlockReq *)s->temp_list->reqs[i])->out.type,
+            //        ((VirtIOBlockReq *)s->temp_list->reqs[i])->out.ioprio);
+            //printf("<elem>: index: %u, out_num: %u, in_num, %u\n",
+            //        ((VirtIOBlockReq *)s->temp_list->reqs[i])->elem.index,
+            //        ((VirtIOBlockReq *)s->temp_list->reqs[i])->elem.out_num,
+            //        ((VirtIOBlockReq *)s->temp_list->reqs[i])->elem.in_num);
             //{
             //    /* sklin: debug message */
             //    unsigned int j;
@@ -1375,7 +1374,7 @@ static int virtio_blk_load_device(VirtIODevice *vdev, QEMUFile *f,
                 for (i = 0; i < len; i++) {
                     int head = qemu_get_be32(f);
                     int idx = qemu_get_be32(f);
-                    printf("%s handle head %d/%d: %d\n", __func__, i, len, head);
+                    ////printf("%s handle head %d/%d: %d\n", __func__, i, len, head);
                     blk_io_plug(s->blk);
                     VirtIOBlockReq *req = virtio_blk_get_request_from_head(vdev, head, idx);
                     virtio_blk_handle_write(req, &mrb);

@@ -119,7 +119,7 @@ void virtio_queue_update_rings(VirtIODevice *vdev, int n)
 }
 
 static void vring_desc_read(VirtIODevice *vdev, VRingDesc *desc,
-                            hwaddr desc_pa, int i, const char *func)
+                            hwaddr desc_pa, int i)
 {
     address_space_read(&address_space_memory, desc_pa + i * sizeof(VRingDesc),
                        MEMTXATTRS_UNSPECIFIED, (void *)desc, sizeof(VRingDesc));
@@ -130,8 +130,8 @@ static void vring_desc_read(VirtIODevice *vdev, VRingDesc *desc,
 
     //bool is_virtio_blk = strcmp("virtio-blk", vdev->name)==0;
     //if(/*migrate_cuju_enabled() &&*/ is_virtio_blk) {
-    //    printf("%s > %s) desc(%p, 0x%lX, %d): addr=0x%lX, len=%d, next=0x%hX, flags=",
-    //        func, __func__, desc, desc_pa, i,
+    //    printf("%s) desc(%p, 0x%lX, %d): addr=0x%lX, len=%d, next=0x%hX, flags=",
+    //        __func__, desc, desc_pa, i,
     //        desc->addr, desc->len, desc->next);
     //    if (desc->flags & VRING_DESC_F_WRITE) {
     //        printf("WRITE-ONLY");
@@ -442,7 +442,7 @@ static int virtqueue_read_next_desc(VirtIODevice *vdev, VRingDesc *desc,
         return VIRTQUEUE_READ_DESC_ERROR;
     }
 
-    vring_desc_read(vdev, desc, desc_pa, *next, __func__);
+    vring_desc_read(vdev, desc, desc_pa, *next);
     return VIRTQUEUE_READ_DESC_MORE;
 }
 
@@ -472,7 +472,7 @@ void virtqueue_get_avail_bytes(VirtQueue *vq, unsigned int *in_bytes,
         }
 
         desc_pa = vq->vring.desc;
-        vring_desc_read(vdev, &desc, desc_pa, i, __func__);
+        vring_desc_read(vdev, &desc, desc_pa, i);
 
         if (desc.flags & VRING_DESC_F_INDIRECT) {
             if (desc.len % sizeof(VRingDesc)) {
@@ -491,7 +491,7 @@ void virtqueue_get_avail_bytes(VirtQueue *vq, unsigned int *in_bytes,
             max = desc.len / sizeof(VRingDesc);
             desc_pa = desc.addr;
             num_bufs = i = 0;
-            vring_desc_read(vdev, &desc, desc_pa, i, __func__);
+            vring_desc_read(vdev, &desc, desc_pa, i);
         }
 
         do {
@@ -757,7 +757,7 @@ void *virtqueue_pop(VirtQueue *vq, size_t sz, unsigned int *head_out, bool defer
 
     i = head;
     *head_out = head;
-    vring_desc_read(vdev, &desc, desc_pa, i, __func__);
+    vring_desc_read(vdev, &desc, desc_pa, i);
     if (desc.flags & VRING_DESC_F_INDIRECT) {
         if (desc.len % sizeof(VRingDesc)) {
             virtio_error(vdev, "Invalid size for indirect buffer table");
@@ -768,7 +768,7 @@ void *virtqueue_pop(VirtQueue *vq, size_t sz, unsigned int *head_out, bool defer
         max = desc.len / sizeof(VRingDesc);
         desc_pa = desc.addr;
         i = 0;
-        vring_desc_read(vdev, &desc, desc_pa, i, __func__);
+        vring_desc_read(vdev, &desc, desc_pa, i);
     }
 
     /* Collect all the descriptors */
@@ -955,7 +955,7 @@ void *virtqueue_get(VirtQueue *vq, size_t sz, unsigned int head)
     //}
 
     i = head;
-    vring_desc_read(vdev, &desc, desc_pa, i, __func__);
+    vring_desc_read(vdev, &desc, desc_pa, i);
     if (desc.flags & VRING_DESC_F_INDIRECT) {
         if (desc.len % sizeof(VRingDesc)) {
             virtio_error(vdev, "Invalid size for indirect buffer table");
@@ -966,7 +966,7 @@ void *virtqueue_get(VirtQueue *vq, size_t sz, unsigned int head)
         max = desc.len / sizeof(VRingDesc);
         desc_pa = desc.addr;
         i = 0;
-        vring_desc_read(vdev, &desc, desc_pa, i, __func__);
+        vring_desc_read(vdev, &desc, desc_pa, i);
     }
 
     /* Collect all the descriptors */
@@ -1881,6 +1881,7 @@ int virtio_set_features(VirtIODevice *vdev, uint64_t val)
 
 int virtio_load(VirtIODevice *vdev, QEMUFile *f, int version_id)
 {
+    printf("%s\n", __func__);
     int i, ret;
     int32_t config_len;
     uint32_t num;
