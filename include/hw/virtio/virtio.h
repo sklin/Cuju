@@ -334,4 +334,7 @@ static inline bool virtio_is_big_endian(VirtIODevice *vdev)
     /* Devices conforming to VIRTIO 1.0 or later are always LE. */
     return false;
 }
+
+/* debug */
+void dump_vq(VirtQueue *vq);
 #endif

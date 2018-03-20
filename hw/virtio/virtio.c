@@ -695,6 +695,7 @@ static void *virtqueue_alloc_element(size_t sz, unsigned out_num, unsigned in_nu
 
 void *virtqueue_pop(VirtQueue *vq, size_t sz, unsigned int *head_out, bool defer_write_map)
 {
+    //dump_vq(vq);
     unsigned int i, head, max;
     hwaddr desc_pa = vq->vring.desc;
     VirtIODevice *vdev = vq->vdev;
@@ -828,6 +829,7 @@ void *virtqueue_pop(VirtQueue *vq, size_t sz, unsigned int *head_out, bool defer
     vq->inuse++;
 
     trace_virtqueue_pop(vq, elem, elem->in_num, elem->out_num);
+    //dump_vq(vq);
     return elem;
 
 err_undo_map:
@@ -2457,3 +2459,16 @@ static void virtio_register_types(void)
 }
 
 type_init(virtio_register_types)
+
+void dump_vq(VirtQueue *vq)
+{
+    printf("<%s>\n", __func__);
+    printf("    vq->last_avail_idx=%" PRIu16 "\n", vq->last_avail_idx);
+    printf("    vq->shadow_avail_idx=%" PRIu16 "\n", vq->shadow_avail_idx);
+    printf("    vq->used_idx=%" PRIu16 "\n", vq->used_idx);
+    printf("    vq->signalled_used=%" PRIu16 "\n", vq->signalled_used);
+    printf("    vq->signalled_used_valid=%d\n", vq->signalled_used_valid);
+    printf("    vq->notification=%d\n", vq->notification);
+    printf("    vq->queue_index=%" PRIu16 "\n", vq->queue_index);
+    printf("    vq->inuse=%d\n", vq->inuse);
+}

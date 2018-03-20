@@ -1168,6 +1168,8 @@ static void virtio_blk_save_device(VirtIODevice *vdev, QEMUFile *f)
     ReqRecord *rec;
     int i;
 
+    //dump_vq(virtio_get_queue(vdev, 0));
+
     // send temp_list and record_list to slave.
     QTAILQ_FOREACH(rec, &s->record_list, node) {
         int nsend = 0; // debugging
@@ -1306,6 +1308,7 @@ static void virtio_blk_save_device(VirtIODevice *vdev, QEMUFile *f)
 static int virtio_blk_load_device(VirtIODevice *vdev, QEMUFile *f,
                                   int version_id)
 {
+    //dump_vq(virtio_get_queue(vdev, 0));
     VirtIOBlock *s = VIRTIO_BLK(vdev);
     int t, i;
 
@@ -1387,6 +1390,7 @@ static int virtio_blk_load_device(VirtIODevice *vdev, QEMUFile *f,
     }
     if(mrb.num_reqs)
         virtio_blk_submit_multireq(s->blk, &mrb);
+    //dump_vq(virtio_get_queue(vdev, 0));
     return 0;
 }
 
